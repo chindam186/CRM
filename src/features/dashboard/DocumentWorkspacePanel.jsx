@@ -32,6 +32,7 @@ export default function DocumentWorkspacePanel({ doc, role }) {
   const isAdmin = role === "admin";
   const canAnnotate = isAdmin || role === "reviewer";
   const progressTimer = useRef(null);
+  const [pageResolution, setPageResolution] = useState({});
 
   function buildPageContent(index) {
     const section = (index % 5) + 1;
@@ -188,6 +189,12 @@ export default function DocumentWorkspacePanel({ doc, role }) {
   const selectedIndex = previewPages.findIndex((page) => page.id === selectedPageId);
   const selectedPage = previewPages[selectedIndex] || previewPages[0];
   const selectedPageNumber = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+  useEffect(() => {
+    // Reset low-resolution render when selection changes
+    if (selectedPageId) {
+      setPageResolution((prev) => ({ ...prev, [selectedPageId]: "low" }));
+    }
+  }, [selectedPageId]);
 
   function syncPagesWithCount(count) {
     if (!count || count <= 0) return;
@@ -473,11 +480,20 @@ export default function DocumentWorkspacePanel({ doc, role }) {
               }}
             >
               <Page
+                key={`page-${selectedPageId}-${retryKey}`}
                 pageNumber={Math.min(selectedPageNumber, pdfPageCount || selectedPageNumber)}
-                width={620}
-                scale={1.2}
-                renderTextLayer={true}
+                width={pageResolution[selectedPageId] === "high" ? 620 : 360}
+                scale={pageResolution[selectedPageId] === "high" ? 1.2 : 0.7}
+                renderTextLayer={pageResolution[selectedPageId] === "high"}
                 renderAnnotationLayer={false}
+                onRenderSuccess={() => {
+                  // After a quick low-res render, upgrade to high-res
+                  if (pageResolution[selectedPageId] !== "high") {
+                    setTimeout(() => {
+                      setPageResolution((prev) => ({ ...prev, [selectedPageId]: "high" }));
+                    }, 150);
+                  }
+                }}
               />
             </Document>
           ) : (

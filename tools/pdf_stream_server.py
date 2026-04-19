@@ -64,7 +64,27 @@ class PdfHandler(BaseHTTPRequestHandler):
             return
 
         file_size = os.path.getsize(pdf_path)
+
+        # Support an "initial" query param to return only the first N bytes
+        # Example: /pdf?initial=1 (defaults to 5MB) or /pdf?initial_bytes=1048576
+        initial_bytes = None
+        if parsed.query:
+            for part in parsed.query.split("&"):
+                if part == "initial=1":
+                    initial_bytes = 5 * 1024 * 1024
+                if part.startswith("initial_bytes="):
+                    try:
+                        initial_bytes = int(part.split("=", 1)[1])
+                    except ValueError:
+                        initial_bytes = None
+
+        # If an explicit Range header is present, honor it. Otherwise, if
+        # initial_bytes requested, return only that prefix.
         byte_range = _parse_range(self.headers.get("Range"), file_size)
+        if byte_range is None and initial_bytes is not None:
+            start = 0
+            end = min(file_size - 1, initial_bytes - 1)
+            byte_range = (start, end)
 
         self.send_response(206 if byte_range else 200)
         self._send_cors()
