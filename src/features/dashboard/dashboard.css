@@ -315,6 +315,13 @@
   opacity: 0.5;
 }
 
+.action-btn.active {
+  background: var(--primary);
+  color: #ffffff;
+  border-color: var(--primary);
+  box-shadow: 0 8px 24px rgba(89, 50, 234, 0.12);
+  transform: translateY(-1px);
+}
 .action-message {
   margin: 8px 0 16px;
   padding: 8px 12px;
