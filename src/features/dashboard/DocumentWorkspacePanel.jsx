@@ -251,46 +251,48 @@ export default function DocumentWorkspacePanel({ doc, role }) {
 
   function handleMerge() {
     if (!isAdmin) return;
-    if (selectedIndex < 0 || selectedIndex >= pages.length - 1) return;
     takeSnapshot("Merge pages");
     setHasUserEdits(true);
-    let currentId = "";
-    let nextId = "";
+
+    const ids = { currentId: "", nextId: "" };
+
     setPages((prev) => {
+      const index = prev.findIndex((p) => p.id === selectedPageId);
+      if (index < 0 || index >= prev.length - 1) return prev;
       const updated = [...prev];
-      const current = updated[selectedIndex];
-      const next = updated[selectedIndex + 1];
+      const current = updated[index];
+      const next = updated[index + 1];
       if (!current || !next) return prev;
-      currentId = current.id;
-      nextId = next.id;
+      ids.currentId = current.id;
+      ids.nextId = next.id;
       const mergedContent = `${current.content}\n\n${next.content}`;
-      updated[selectedIndex] = { ...current, content: mergedContent };
-      updated.splice(selectedIndex + 1, 1);
+      updated[index] = { ...current, content: mergedContent };
+      updated.splice(index + 1, 1);
       return updated;
     });
 
-    if (currentId) {
-      setSelectedPageId(currentId);
+    if (ids.currentId) {
+      setSelectedPageId(ids.currentId);
       setEditMode(true);
     }
 
-    if (currentId && nextId) {
+    if (ids.currentId && ids.nextId) {
       setComments((prev) => {
-        const next = { ...prev };
+        const copy = { ...prev };
         const mergedComments = [
-          ...(next[currentId] || []),
-          ...(next[nextId] || [])
+          ...(copy[ids.currentId] || []),
+          ...(copy[ids.nextId] || [])
         ];
         if (mergedComments.length) {
-          next[currentId] = mergedComments;
+          copy[ids.currentId] = mergedComments;
         }
-        delete next[nextId];
-        return next;
+        delete copy[ids.nextId];
+        return copy;
       });
 
       setAnnotations((prev) =>
         prev.map((item) =>
-          item.pageId === nextId ? { ...item, pageId: currentId } : item
+          item.pageId === ids.nextId ? { ...item, pageId: ids.currentId } : item
         )
       );
     }
