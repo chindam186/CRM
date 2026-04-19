@@ -15,6 +15,8 @@ export default function DocumentWorkspacePanel({ doc, role }) {
   const [comments, setComments] = useState({});
   const [annotations, setAnnotations] = useState([]);
   const [editMode, setEditMode] = useState(false);
+  const [activeAction, setActiveAction] = useState("");
+  const activeTimer = useRef(null);
   const [pdfError, setPdfError] = useState("");
   const [fileSizeBytes, setFileSizeBytes] = useState(0);
   const [pdfPageCount, setPdfPageCount] = useState(0);
@@ -90,6 +92,25 @@ export default function DocumentWorkspacePanel({ doc, role }) {
       }
     };
   }, [doc]);
+
+  useEffect(() => {
+    return () => {
+      if (activeTimer.current) {
+        clearTimeout(activeTimer.current);
+      }
+    };
+  }, []);
+
+  function markActive(action, persistent = false) {
+    setActiveAction(action);
+    if (activeTimer.current) {
+      clearTimeout(activeTimer.current);
+      activeTimer.current = null;
+    }
+    if (!persistent) {
+      activeTimer.current = setTimeout(() => setActiveAction(""), 1500);
+    }
+  }
 
   useEffect(() => {
     if (!doc || pdfPageCount <= 0) return;
@@ -359,13 +380,39 @@ export default function DocumentWorkspacePanel({ doc, role }) {
       </div>
 
       <div className="doc-actions">
-        <button className="action-btn" onClick={() => setEditMode((prev) => !prev)} disabled={!isAdmin}>
+        <button
+          className={`action-btn ${editMode ? "active" : ""}`}
+          onClick={() => {
+            const next = !editMode;
+            setEditMode(next);
+            if (next) {
+              markActive("edit", true);
+            } else {
+              setActiveAction("");
+            }
+          }}
+          disabled={!isAdmin}
+        >
           {editMode ? "Exit Edit" : "Edit"}
         </button>
-        <button className="action-btn" onClick={handleSplit} disabled={!isAdmin}>
+        <button
+          className={`action-btn ${activeAction === "split" ? "active" : ""}`}
+          onClick={() => {
+            handleSplit();
+            markActive("split");
+          }}
+          disabled={!isAdmin}
+        >
           Split
         </button>
-        <button className="action-btn" onClick={handleMerge} disabled={!isAdmin}>
+        <button
+          className={`action-btn ${activeAction === "merge" ? "active" : ""}`}
+          onClick={() => {
+            handleMerge();
+            markActive("merge");
+          }}
+          disabled={!isAdmin}
+        >
           Merge
         </button>
         <button className="action-btn danger" onClick={handleDeletePage} disabled={!isAdmin}>
