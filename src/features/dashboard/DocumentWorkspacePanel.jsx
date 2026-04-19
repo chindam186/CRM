@@ -32,7 +32,6 @@ export default function DocumentWorkspacePanel({ doc, role }) {
   const isAdmin = role === "admin";
   const canAnnotate = isAdmin || role === "reviewer";
   const progressTimer = useRef(null);
-  const [pageResolution, setPageResolution] = useState({});
 
   function buildPageContent(index) {
     const section = (index % 5) + 1;
@@ -189,12 +188,6 @@ export default function DocumentWorkspacePanel({ doc, role }) {
   const selectedIndex = previewPages.findIndex((page) => page.id === selectedPageId);
   const selectedPage = previewPages[selectedIndex] || previewPages[0];
   const selectedPageNumber = selectedIndex >= 0 ? selectedIndex + 1 : 1;
-  useEffect(() => {
-    // Reset low-resolution render when selection changes
-    if (selectedPageId) {
-      setPageResolution((prev) => ({ ...prev, [selectedPageId]: "low" }));
-    }
-  }, [selectedPageId]);
 
   function syncPagesWithCount(count) {
     if (!count || count <= 0) return;
@@ -258,48 +251,46 @@ export default function DocumentWorkspacePanel({ doc, role }) {
 
   function handleMerge() {
     if (!isAdmin) return;
+    if (selectedIndex < 0 || selectedIndex >= pages.length - 1) return;
     takeSnapshot("Merge pages");
     setHasUserEdits(true);
-
-    const ids = { currentId: "", nextId: "" };
-
+    let currentId = "";
+    let nextId = "";
     setPages((prev) => {
-      const index = prev.findIndex((p) => p.id === selectedPageId);
-      if (index < 0 || index >= prev.length - 1) return prev;
       const updated = [...prev];
-      const current = updated[index];
-      const next = updated[index + 1];
+      const current = updated[selectedIndex];
+      const next = updated[selectedIndex + 1];
       if (!current || !next) return prev;
-      ids.currentId = current.id;
-      ids.nextId = next.id;
+      currentId = current.id;
+      nextId = next.id;
       const mergedContent = `${current.content}\n\n${next.content}`;
-      updated[index] = { ...current, content: mergedContent };
-      updated.splice(index + 1, 1);
+      updated[selectedIndex] = { ...current, content: mergedContent };
+      updated.splice(selectedIndex + 1, 1);
       return updated;
     });
 
-    if (ids.currentId) {
-      setSelectedPageId(ids.currentId);
+    if (currentId) {
+      setSelectedPageId(currentId);
       setEditMode(true);
     }
 
-    if (ids.currentId && ids.nextId) {
+    if (currentId && nextId) {
       setComments((prev) => {
-        const copy = { ...prev };
+        const next = { ...prev };
         const mergedComments = [
-          ...(copy[ids.currentId] || []),
-          ...(copy[ids.nextId] || [])
+          ...(next[currentId] || []),
+          ...(next[nextId] || [])
         ];
         if (mergedComments.length) {
-          copy[ids.currentId] = mergedComments;
+          next[currentId] = mergedComments;
         }
-        delete copy[ids.nextId];
-        return copy;
+        delete next[nextId];
+        return next;
       });
 
       setAnnotations((prev) =>
         prev.map((item) =>
-          item.pageId === ids.nextId ? { ...item, pageId: ids.currentId } : item
+          item.pageId === nextId ? { ...item, pageId: currentId } : item
         )
       );
     }
@@ -480,20 +471,11 @@ export default function DocumentWorkspacePanel({ doc, role }) {
               }}
             >
               <Page
-                key={`page-${selectedPageId}-${retryKey}`}
                 pageNumber={Math.min(selectedPageNumber, pdfPageCount || selectedPageNumber)}
-                width={pageResolution[selectedPageId] === "high" ? 620 : 360}
-                scale={pageResolution[selectedPageId] === "high" ? 1.2 : 0.7}
-                renderTextLayer={pageResolution[selectedPageId] === "high"}
+                width={620}
+                scale={1.2}
+                renderTextLayer={true}
                 renderAnnotationLayer={false}
-                onRenderSuccess={() => {
-                  // After a quick low-res render, upgrade to high-res
-                  if (pageResolution[selectedPageId] !== "high") {
-                    setTimeout(() => {
-                      setPageResolution((prev) => ({ ...prev, [selectedPageId]: "high" }));
-                    }, 150);
-                  }
-                }}
               />
             </Document>
           ) : (
